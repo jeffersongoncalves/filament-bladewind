@@ -118,21 +118,22 @@ class ApplyBladeWind
 
                     if (! page) return;
 
-                    Livewire.interceptRequest(({ request }) => {
-                        request.options.headers['{$header}'] = page;
+                    Livewire.hook('request', ({ options }) => {
+                        options.headers['{$header}'] = page;
                     });
 
-                    Livewire.interceptMessage(({ onSuccess }) => {
-                        onSuccess(({ payload }) => {
-                            const css = payload?.effects?.bladewind;
+                    // Livewire 3 awaits this hook before it morphs the returned components.
+                    Livewire.hook('payload.intercept', ({ components }) => {
+                        for (const component of components ?? []) {
+                            const css = component?.effects?.bladewind;
 
-                            if (! css) return;
+                            if (! css) continue;
 
                             const style = document.createElement('style');
                             style.dataset.filamentBladewind = '';
                             style.textContent = css;
                             document.head.append(style);
-                        });
+                        }
                     });
                 });
             </script>

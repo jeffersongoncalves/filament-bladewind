@@ -41,7 +41,8 @@ it('keeps what a page covers and grows it with each delta', function () {
 
 it('sends the page id with Livewire requests and adds streamed CSS before the morph', function () {
     expect(ApplyBladeWind::script())
-        ->toContain('Livewire.interceptRequest')
-        ->toContain("request.options.headers['".ApplyBladeWind::HEADER."']")
-        ->toContain('payload?.effects?.bladewind');
+        ->toContain("Livewire.hook('request'")
+        ->toContain("options.headers['".ApplyBladeWind::HEADER."']")
+        ->toContain("Livewire.hook('payload.intercept'")
+        ->toContain('component?.effects?.bladewind');
 });
