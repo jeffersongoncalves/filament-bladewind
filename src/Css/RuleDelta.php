@@ -15,12 +15,14 @@ use Daikazu\BladeWind\Stylesheets\StylesheetIndex;
  * HTML the page never had (an action modal, a form, a notification): its tokens that are not
  * covered bring rules the page lacks. Appending just those would reorder the cascade: a streamed
  * rule lands after every page rule, although in the stylesheet it may sit before one that must
- * still win on the same element. So the delta also re-emits every rule of the fragment's tokens
- * (and every unconditional rule) that comes after the first new one, in stylesheet order.
+ * still win on the same element.
  *
- * That is enough because a new rule can only match elements carrying one of the new tokens, i.e.
- * elements of the fragment, and every rule that can compete with it on such an element is indexed
- * under one of the fragment's tokens or is unconditional.
+ * So the delta is the stylesheet-ordered tail from the first new rule on: the new rules plus every
+ * rule the page already has after that point. Any two rules then keep their relative order: both
+ * before the tail (page only), or both re-emitted in order after the page. Re-emitting only the
+ * fragment's rules is not enough: a re-emitted rule also matches elements outside the fragment
+ * (the topbar's close button carries `fi-icon-btn` too) and would jump ahead of the page rules
+ * that override it there.
  */
 final class RuleDelta
 {
@@ -54,44 +56,42 @@ final class RuleDelta
      */
     public static function build(UtilityRuleIndex $index, array $covered, array $fragment): string
     {
-        /** @var array<int, true> $delivered */
+        /** @var array<int, IndexedRule> $delivered the page's rules (and earlier deltas'), by position */
         $delivered = [];
 
         foreach ($index->unconditional() as $rule) {
-            $delivered[$rule->position] = true;
+            if (! $rule->statement) {
+                $delivered[$rule->position] = $rule;
+            }
         }
 
         foreach ($covered as $token) {
             foreach ($index->rulesFor($token) as $rule) {
-                $delivered[$rule->position] = true;
+                $delivered[$rule->position] = $rule;
             }
         }
 
-        /** @var array<int, IndexedRule> $candidates */
-        $candidates = [];
-        $first = null;
+        /** @var array<int, IndexedRule> $new */
+        $new = [];
 
         foreach ($fragment as $token) {
             foreach ($index->rulesFor($token) as $rule) {
-                $candidates[$rule->position] = $rule;
-
-                if (! isset($delivered[$rule->position]) && ($first === null || $rule->position < $first)) {
-                    $first = $rule->position;
+                if (! isset($delivered[$rule->position])) {
+                    $new[$rule->position] = $rule;
                 }
             }
         }
 
-        if ($first === null) {
+        if ($new === []) {
             return '';
         }
 
-        foreach ($index->unconditional() as $rule) {
-            if (! $rule->statement) {
-                $candidates[$rule->position] = $rule;
-            }
-        }
+        $first = min(array_keys($new));
 
-        $rules = array_filter($candidates, static fn (IndexedRule $rule): bool => $rule->position >= $first);
+        // Every rule the page already has from the first new one on is re-emitted, not only the
+        // fragment's: a re-emitted rule applies to every element carrying its class, inside the
+        // fragment or not, so each later page rule must follow it again to keep winning.
+        $rules = $new + array_filter($delivered, static fn (IndexedRule $rule): bool => $rule->position > $first);
         ksort($rules);
 
         return self::emit($rules);
