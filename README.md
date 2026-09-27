@@ -12,10 +12,10 @@
 
 Per-page CSS for Filament panels, built on [daikazu/bladewind](https://github.com/daikazu/bladewind).
 
-A Filament 5 panel theme is roughly 650 KB, and about 90% of it is the `fi-*` component rules in
-`@layer components`. BladeWind on its own only splits Tailwind's utilities per page and keeps
-components in the shared root, so on a panel it saves almost nothing. This plugin splits the
-components layer too, and keeps every page styled after Livewire updates:
+A Filament panel theme is roughly 650 KB, and about 90% of it is the `fi-*` component rules. On a
+Filament 4/5 (Tailwind 4) theme, BladeWind on its own only splits Tailwind's utilities per page and
+keeps components in the shared root, so on a panel it saves almost nothing. This plugin splits the
+components too, and keeps every page styled after Livewire updates:
 
 - **Components are split per page.** Each page loads a small shared root plus the `fi-*`
   components and utilities it actually uses, and both layers keep their cascade position.
@@ -38,16 +38,24 @@ Measured on a real panel (theme ~657 KB):
 
 > [!WARNING]
 > **Experimental.** This plugin builds on BladeWind internals (0.1.x, pinned to that minor) and on
-> how Livewire 4 and Filament 5 ship updates. Test your panel's pages, modals and actions before
-> you use it in production.
+> how Livewire and Filament ship updates. Test your panel's pages, modals and actions before you use
+> it in production. The measurements above and the end-to-end modal test come from a Filament 5
+> panel; the 1.x and 2.x branches are covered by unit tests only.
 
 ## Compatibility
 
-| Branch | Filament | Laravel | PHP |
-|--------|----------|---------|-----|
-| 3.x | 5.x | 13.x | 8.4+ |
+| Branch | Filament | Livewire | Tailwind (theme) | Laravel | PHP | Package version |
+|--------|----------|----------|------------------|---------|-----|-----------------|
+| 1.x | 3.3 | 3.x | 3 | 13.x | 8.4+ | ^1.0 |
+| 2.x | 4.x | 3.x | 4 | 13.x | 8.4+ | ^2.0 |
+| 3.x | 5.x | 4.x | 4 | 13.x | 8.4+ | ^3.0 |
 
-BladeWind requires Laravel 13, so there are no Filament 3/4 branches.
+BladeWind requires Laravel 13 and PHP 8.4 on every branch.
+
+- **Tailwind 4 themes (2.x, 3.x):** the driver moves `@layer components` into the per-page pool,
+  and each page file re-opens the components and utilities layers.
+- **Tailwind 3 themes (1.x):** the output has no cascade layers, so BladeWind's flat split already
+  pools everything from the first class rule on, the `fi-*` components included.
 
 ## Installation
 
@@ -95,17 +103,19 @@ panel theme for the duration of the request.
 1. **Theme.** The plugin sets the panel theme to BladeWind's `@bladewindStyles` links. A persistent
    panel middleware points BladeWind at the panel theme, the panel's views and `vendor/filament/*`,
    and at this package's `filament` CSS driver.
-2. **Split.** The driver moves `@layer components` into the per-page pool next to the utilities.
-   The support layers (theme variables, `--tw-*` properties, `@property`, `@keyframes`) stay whole
-   in the root, which is a few KB. Because the root has every variable, streamed rules never
-   depend on one the page didn't load.
+2. **Split.** The `fi-*` components go into the per-page pool next to the utilities. The support
+   declarations (theme variables, `--tw-*` properties, `@property`, `@keyframes`) stay whole in the
+   root, which is a few KB. Because the root has every variable, streamed rules never depend on
+   one the page didn't load.
 3. **Page load.** The middleware records the page's class set in the cache under a random id and
    puts the id in a `<meta>` tag.
 4. **Livewire update.** A small script sends that id with every Livewire request. A Livewire
-   `response` listener reads the HTML the update renders (the component HTML plus the `partials`
-   and `islands` Filament 5 uses for action modals) and computes the rules the page doesn't have
-   yet. It returns them in `effects.bladewind`, and the script adds them to `<head>` before the
-   morph.
+   `response` listener reads the HTML the update renders and computes the rules the page doesn't
+   have yet. The HTML is the component HTML, plus the `partials` and `islands` that Livewire 4
+   uses (Filament 5 sends action modals as a partial). The listener returns the rules in
+   `effects.bladewind`, and the script adds them to `<head>` before the morph. On Livewire 4 that
+   happens in `interceptMessage` → `onSuccess`; on Livewire 3 it happens in the
+   `payload.intercept` hook.
 
 If the cache has lost a page's id, the next update simply re-sends everything its fragment needs.
 It never sends less.
@@ -118,7 +128,8 @@ BladeWind reports these codes for a panel, and they're expected:
   includes; their HTML is covered when it renders.
 - **BW2002:** an Alpine binding can't be enumerated.
 - **BW2004:** a `@class` entry isn't a string.
-- **BW6005:** the support layers are kept whole, which this driver does on purpose.
+- **BW6005:** the support layers are kept whole, which the Tailwind 4 driver does on purpose
+  (2.x, 3.x).
 
 ## Testing your panel
 
@@ -135,7 +146,7 @@ it('styles the users table', function () {
 
     $this->assertPageStyles('/admin/users', new PageExpectation(
         framework: 'filament',
-        diagnostics: ['BW1001', 'BW2002', 'BW2004', 'BW6005'],
+        diagnostics: ['BW1001', 'BW2002', 'BW2004', 'BW6005'], // no BW6005 on 1.x
     ));
 });
 ```
