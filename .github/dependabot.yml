@@ -1,0 +1,40 @@
+# Standard Dependabot config (dependabot-std).
+# Weekly, grouped, 7-day cooldown (time to catch a malicious release).
+# 3.x = Filament 5 (BladeWind needs Laravel 13, so there is no 1.x/2.x branch).
+# daikazu/bladewind is pinned to its 0.1 minor: this package builds on its internals, so a
+# new minor needs a manual review, not an automatic bump.
+
+version: 2
+
+updates:
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: 3.x
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions-deps:
+        patterns:
+          - '*'
+
+  - package-ecosystem: composer
+    directory: /
+    target-branch: 3.x
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: filament/*
+        versions:
+          - '>=6.0'
+      - dependency-name: daikazu/bladewind
+        versions:
+          - '>=0.2'
+    groups:
+      composer-deps:
+        patterns:
+          - '*'
