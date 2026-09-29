@@ -42,7 +42,15 @@ final class FilamentDriver implements CssFrameworkDriver
         return $this->tailwind->detect($css) && str_contains($css, '.fi-');
     }
 
+    /**
+     * Cached by the theme's content hash: the split does not change until the theme is rebuilt.
+     */
     public function split(string $css): SplitStylesheet
+    {
+        return Memo::get('split', md5($css), fn (): SplitStylesheet => $this->splitUncached($css));
+    }
+
+    private function splitUncached(string $css): SplitStylesheet
     {
         $split = $this->tailwind->split($css);
 
