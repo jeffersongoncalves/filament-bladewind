@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace JeffersonGoncalves\Filament\BladeWind\Css;
 
 use Illuminate\Filesystem\Filesystem;
+use Symfony\Component\Finder\SplFileInfo;
 
 /**
  * The `fi-*` class names found as string literals in Filament's published JavaScript
@@ -29,25 +30,35 @@ final class RuntimeTokens
      */
     public function all(): array
     {
-        return $this->tokens ??= $this->scan();
+        if ($this->tokens !== null) {
+            return $this->tokens;
+        }
+
+        if (! $this->files->isDirectory($this->directory)) {
+            return $this->tokens = [];
+        }
+
+        $scripts = array_values(array_filter(
+            $this->files->allFiles($this->directory),
+            static fn ($file): bool => $file->getExtension() === 'js',
+        ));
+
+        // Re-scanned only when a script changes (filament:upgrade republishes them): reading
+        // ~3 MB of JavaScript on every panel request costs tens of milliseconds.
+        $version = count($scripts).':'.max([0, ...array_map(static fn ($file): int => (int) $file->getMTime(), $scripts)]);
+
+        return $this->tokens = Memo::get('runtime-tokens:'.md5($this->directory), $version, fn (): array => $this->scan($scripts));
     }
 
     /**
+     * @param  list<SplFileInfo>  $scripts
      * @return list<string>
      */
-    private function scan(): array
+    private function scan(array $scripts): array
     {
-        if (! $this->files->isDirectory($this->directory)) {
-            return [];
-        }
-
         $tokens = [];
 
-        foreach ($this->files->allFiles($this->directory) as $file) {
-            if ($file->getExtension() !== 'js') {
-                continue;
-            }
-
+        foreach ($scripts as $file) {
             preg_match_all('~["\'`]([^"\'`\n]*)["\'`]~', $file->getContents(), $literals);
 
             foreach ($literals[1] as $literal) {
