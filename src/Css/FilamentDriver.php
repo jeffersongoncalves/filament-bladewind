@@ -6,6 +6,7 @@ namespace JeffersonGoncalves\Filament\BladeWind\Css;
 
 use Daikazu\BladeWind\Pages\Drivers\FlatDriver;
 use Daikazu\BladeWind\Pages\FlatStylesheetSplitter;
+use Daikazu\BladeWind\Pages\SplitStylesheet;
 
 /**
  * A Filament 3 panel theme: Tailwind 3 output, so no cascade layers. Filament's `fi-*` component
@@ -29,6 +30,14 @@ final class FilamentDriver extends FlatDriver
     public function name(): string
     {
         return self::NAME;
+    }
+
+    /**
+     * Cached by the theme's content hash: the split does not change until the theme is rebuilt.
+     */
+    public function split(string $css): SplitStylesheet
+    {
+        return Memo::get('split', md5($css), fn (): SplitStylesheet => parent::split($css));
     }
 
     /**

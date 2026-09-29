@@ -41,6 +41,11 @@ final class RuleDelta
      */
     public function css(array $covered, array $fragment): string
     {
+        // Most updates render nothing the page did not already have: no need to touch the index.
+        if (array_diff($fragment, $covered) === []) {
+            return '';
+        }
+
         $index = $this->index();
 
         if ($index === null) {
@@ -145,10 +150,13 @@ final class RuleDelta
                 return null;
             }
 
-            $split = $this->driver->split($css);
             $this->hash = $stylesheet->hash;
 
-            return $this->index = UtilityRuleIndex::build($split->utilities, $this->driver->indexTokens(...));
+            return $this->index = Memo::get(
+                'index',
+                $stylesheet->hash,
+                fn (): UtilityRuleIndex => UtilityRuleIndex::build($this->driver->split($css)->utilities, $this->driver->indexTokens(...)),
+            );
         }
 
         return null;

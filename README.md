@@ -120,6 +120,13 @@ panel theme for the duration of the request.
 If the cache has lost a page's id, the next update simply re-sends everything its fragment needs.
 It never sends less.
 
+BladeWind keeps its stylesheet work in memory per PHP process, which under PHP-FPM means it redoes
+the work on every request. For a Filament theme that costs about 400 ms (split, rule index, and a
+scan of Filament's JavaScript), so the plugin keeps these in your cache store. Each one sits under
+a single key and is replaced when its source changes: the theme's content hash for the split and
+the index, the scripts' modification times for the JavaScript scan. An update that renders no new
+class doesn't load the index at all.
+
 ## Diagnostics you will see
 
 BladeWind reports these codes for a panel, and they're expected:
