@@ -2,6 +2,14 @@
 
 All notable changes to `filament-bladewind` will be documented in this file.
 
+## 3.0.2 - 2026-09-29
+
+Performance: cache the theme split, the rule index and the runtime-token scan.
+
+BladeWind memoises its stylesheet work per PHP process, i.e. per request under PHP-FPM. For a Filament theme that meant ~120 ms to split it on every panel page, ~270 ms to build the rule index on every Livewire update that rendered HTML, and ~20 ms to scan Filament's published JavaScript on every page.
+
+They now live in your cache store under one key each, replaced when their source changes (the theme's content hash for the split and index, the scripts' modification times for the scan): about 4.5 / 10 / 5 ms warm. An update that renders no class the page lacks returns before touching the index.
+
 ## 3.0.1 - 2026-09-27
 
 Fixes the cascade for elements outside a Livewire update.
